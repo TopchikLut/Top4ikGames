@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>СПИСОК</title>
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:'VT323','Courier New',monospace;user-select:none}
+  #game{position:fixed;inset:0;width:100vw;height:100vh;display:block;image-rendering:pixelated;image-rendering:crisp-edges;cursor:grab}
+  #game.dragging{cursor:grabbing}
+  #noiseC{position:fixed;inset:0;width:100vw;height:100vh;opacity:.08;pointer-events:none;z-index:5;mix-blend-mode:screen}
+  #scan{position:fixed;inset:0;pointer-events:none;z-index:6;background:repeating-linear-gradient(0deg,rgba(0,0,0,.3) 0 1px,transparent 1px 3px)}
+  #vig{position:fixed;inset:0;pointer-events:none;z-index:6;background:radial-gradient(ellipse at center,transparent 40%,rgba(0,0,0,.85) 100%)}
+  
+  #continueBtn{position:fixed;bottom:8%;right:8%;font-family:inherit;font-size:26px;padding:16px 50px;background:#1a0505;color:#e8d8b0;border:3px solid #8b0000;cursor:pointer;letter-spacing:5px;z-index:10;opacity:0;pointer-events:none;transition:all .8s;box-shadow:0 0 40px rgba(139,0,0,.6)}
+  #continueBtn.show{opacity:1;pointer-events:auto}
+  #continueBtn:hover{background:#8b0000;color:#fff;box-shadow:0 0 60px rgba(255,0,0,.8)}
+  
+  #fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:12;transition:opacity 1.5s}
+  
+  #timer{position:fixed;top:20px;right:20px;font-size:28px;color:#ff4040;text-shadow:2px 2px 0 #000;z-index:8;opacity:.8}
+</style>
+</head>
+<body>
+
+<canvas id="noiseC" width="128" height="72"></canvas>
+<div id="scan"></div><div id="vig"></div>
+<button id="continueBtn">ПРОДОВЖИТИ ▸</button>
+<div id="timer"></div>
+<div id="fade"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+const nicks=[
+  "Holo","*DEN4IK*","beautiful","DimaMukhin","DuckPickachu","Foxi_Cena","KaMika","miowwwex",
+  "Miroslavina","vlz_manvv3l","лумее","шептун","✧ ╰ᵒ͈kkᵒ͈╯ ✧","!! . ―:: µɑsho 마음","(*///*)","(Mob.3) Larry_Smitch",
+  "322","447089","64Duck","881659",":(W2):LuxuryWhite","[ВРУ] Толік Ігнатів","^+PîLøT+°","_Arbuzan_228",
+  "*mineerl*","A-10 thunderbolt II","Agent???","Agriel(Віталій)","Andre379","AneCodw","Anthony366","Anti_",
+  "aqur0_0","Artem_t_t_v","Asasin_creaper (procripe)","astolfo's slave","Bachira Meguru","Bahmal","Banan4ik",
+  "bebebe_jabka_31057","Beluga|RainbowLion6406","BENDY559","BILL34KI","BlueGalax2609","Bob","Bobr22",
+  "Bobrik.kurvik","bonyaxer","Botik","BULKA","CareTaker","casam vout","catcapiShon-кашак","catcapiShon-Я СТАТУЯ НЕ ФУРІ",
+  "Catji","Chell_Varior1368","chilll PeSt9CHuK","ChiroN","Cordelius","craft_boi12","CreeperMine","Cubix",
+  "dangai_qwu","Daniel","DanyaUA","David_095","DEGADED","Demen_2013","Demonsleyer","Dencool","Denisking1221",
+  "Denys","DeR1X","desterny01","Dexolate","Didpley","Dima","Dima Zverev","dimagg","Dodik","Dogdei",
+  "Dorbius228","DOZIK","drxx","Dryfheke","Dryg_Uarik","ee_godzila","ELEKROFRIZIROVCHIK","Eobloxmr","feniks228",
+  "fima","FISHKA1145","Fokis_Fox","Fox Chef","Fox Fisherman","Fzk","GagarizYT","Gamer but seal","gen",
+  "Gentlenoob","glitch.world","Gogok","Griffith___","Guli","Gus 1970","hag","Hecker","Homka",
+  "HordiiPL (UA) Navi","HuFish","lamProBG","igor","Igor","Illa","illariga","IMPERATOR ZIZI","inker","Iralion",
+  "Ivtam","JustAFox","Kairakuji","kapibarka","Kasaneru","Khr123","kiril","KirilCR7Fan","Kislotnoe","KitKat",
+  "koha","koha (інший користувач)","Kosta","kostoa144444","Kostya62531","Krabys","Krabys (інший користувач)","kwynkekw^^",
+  "KyryloKatze","Latti","leaXik_miNet","lololoshvka","lumi","lytvytvynov","maksproshka","mamontenok","Matvei",
+  "Matvij","Maxo","maxpetrovich","Melon_Foxx","mevss.","Mewwka","MeXaHuK","Micha","Mifik 😊","miha",
+  "miku04874. 28 Июня.2011 года","MironsMakarons","Misha","Misha (інший користувач)","MisterPro","MorakYuTub",
+  "Mr. Fox","Mr.туалет","Mr.туалет (інший користувач)","MrCat","MrFontsik","Mrqwetarr","Mrqwetarr (інший користувач)",
+  "murder_drones_fan","musicmanlol","nanzik156785_;3","Nazar","nazarkx2","Neyro","Nikita_play","NinjaUa",
+  "Noctis Dreaven","okyn","Oleg_Da_Boom","Olmen","Orest","Ostap28k","P1DQR","Pashka 😀","Pebble 🪨38",
+  "Pkwbjalw","Play kase","Pomidorchik2","Potyszniy","potyzhno men","psvsy","pwgood","Qw3rti","QWZER00","Rabit",
+  "RaneFine","rik","Riki","Roma","Rsc","RUBI","S1rexx13","Sairen","Sasha","Savojo","sdup","Sevka",
+  "seX на clavy","Shad0wPism22","sigmaboss","Sigmo_Tunec","Sili Slime","sirius954","SirUMEluy","Sjejejjw",
+  "snake11235","Sofi Mari","stalker","Stalker2","stasan","Stasfror","Stupid blue","superars324","Tanyshka",
+  "Tesla men 1945","TimiPlay","Timofiy😄","turuiopok","Tyg tyg tyg tyg sacyh","Tymor🇺🇦","vexon","Vexon",
+  "Viadolorosa","Vlad","vladnix","Vlat","vneboulechu","voloda","WeareVenomYT","Whispers","wintexx 🩹ESC",
+  "x VIBE","xiaomi pad 5 🤢GLRP","Yegor_453","YTGVEST","ZabolotniyYaroslav","zayba1988","zombo0769",
+  "Zorm33033 AERO","|nazar@||","§ 5toHes skull § 52 ezzz","ааєє","Абабу","Альона","Анальний_термінатор777 [Бодя]",
+  "Артьом🤖🥷","Бода плей","Брокер","Ваня","ВЕЛИКИЙ МАГ МАРАЗМА ... 🔥RUST","ВИ МОЇ ПРИСЛУГИ","Вітьок","Глеб",
+  "ДаКа UMA","Данилка","ДАНИЛО","Дарина","Дем'ян","Держи себя в руках","Дима Play","Динис веребич","Дмитро",
+  "Дмитро","Жека Темщик","Зеля 🍃HRZN","Зрада ⚡PULS","Зрада фу 💎CS2","Кавун","мефедрон 🧼сіма","Микола",
+  "Миха_укр_манул_435_😖^-... 🐱BELU","Міша","нейрикс","НеСтранник","Олег","поглинатель баребухів ✨CORE","пузік",
+  "Пушок_Нелюдь","Пісюн","Райан Гослинг","Ратес 🍃GTAG","Роман галій сногризович","Ростик","сахарок топ 🏆AR:X",
+  "Свят","Села дала #Село","Сеня","Скайлозавр","Тасавріно Цепеліно 🍪CAPY","Тетаріанці","Турбо ежик321","Тіма",
+  "Утюг","Фонарик","футджобер","Хз","Хліб","церковь 🩸","чіл гайс","шахтер ⚔️PF","Юри","Єгор","THEHIKIRI",
+  "-· ·· -·-· · / - ·-· --","☂️尼基☂️","♡Kara♡","✟_EBEN_✟","❀DEVI❀","毛尺. 爪LIKA尺D毛 🪐ELDN","FATCAT_LEGEND",
+  "꧁Smertь 🍃GAG","uŠAnARCHYGUYĐ) 🐱UE","Galactic✦","🇺🇦FugaBuga🇺🇦","🔥PARTNHER🔥 TTD"
+];
+
+const HEADER_HEIGHT_PX=310;
+const LINE_HEIGHT_PX=24;
+const PADDING_BOTTOM_PX=80;
+const TEX_WIDTH=512;
+
+const nickCount=nicks.length;
+const texHeight=HEADER_HEIGHT_PX+nickCount*LINE_HEIGHT_PX+PADDING_BOTTOM_PX;
+
+const LETTER_WIDTH=4.0;
+const aspect=texHeight/TEX_WIDTH;
+const LETTER_HEIGHT=LETTER_WIDTH*aspect;
+
+const ZOOM_START_Z=-(LETTER_HEIGHT/2-4.0);
+const PAN_LIMIT_X=3.0;
+const PAN_LIMIT_Z=LETTER_HEIGHT/2+2.0;
+
+let scene,camera,renderer;
+const PS1_SCALE=0.34;
+function ps1Size(){const w=innerWidth,h=innerHeight;return[Math.max(320,w*PS1_SCALE|0),Math.max(180,h*PS1_SCALE|0)];}
+scene=new THREE.Scene();
+scene.background=new THREE.Color(0x0a0808);
+scene.fog=new THREE.FogExp2(0x0a0808,0.025);
+
+camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,0.1,300);
+const CAM_START_Z=Math.max(LETTER_HEIGHT*0.35,18);
+const CAM_END_Z=Math.max(LETTER_HEIGHT*0.15,7);
+const CAM_START={x:0,y:CAM_START_Z*1.25,z:CAM_START_Z};
+const CAM_END={x:0,y:CAM_END_Z*1.3,z:CAM_END_Z};
+camera.position.set(CAM_START.x,CAM_START.y,CAM_START.z);
+camera.lookAt(0,0,0);
+scene.add(camera);
+
+renderer=new THREE.WebGLRenderer({antialias:false,powerPreference:'low-power'});
+renderer.setPixelRatio(1);
+renderer.domElement.id='game';
+document.body.prepend(renderer.domElement);
+function onResize(){
+  camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
+  const[iw,ih]=ps1Size();renderer.setSize(iw,ih,false);
+  const c=renderer.domElement;c.style.width='100vw';c.style.height='100vh';
+}
+addEventListener('resize',onResize);onResize();
+
+function ps1(m,jit=120){
+  m.onBeforeCompile=s=>{
+    s.vertexShader=s.vertexShader
+      .replace('#include <common>','#include <common>\nuniform float uJit;')
+      .replace('#include <project_vertex>',`#include <project_vertex>
+        {vec4 pv=gl_Position;pv.xyz/=pv.w;pv.xy=floor(pv.xy*uJit)/uJit;pv.xyz*=pv.w;gl_Position=pv;}`);
+    s.uniforms.uJit={value:jit};
+  };
+  return m;
+}
+
+function makeTex(w,h,draw){
+  const c=document.createElement('canvas');c.width=w;c.height=h;
+  draw(c.getContext('2d'),w,h);
+  const t=new THREE.CanvasTexture(c);
+  t.magFilter=t.minFilter=THREE.NearestFilter;t.generateMipmaps=false;
+  return t;
+}
+
+const texLetter=makeTex(TEX_WIDTH,texHeight,(g,w,h)=>{
+  g.fillStyle='#e8e0c8';g.fillRect(0,0,w,h);
+  for(let i=0;i<Math.floor(h*1.5);i++){
+    g.fillStyle=`rgba(${rnd(90,130)|0},${rnd(80,110)|0},${rnd(60,90)|0},${rnd(0.02,0.06)})`;
+    g.fillRect(rnd(0,w),rnd(0,h),rnd(1,3),rnd(1,3));
+  }
+  const edgeG=g.createRadialGradient(w/2,h/2,w*0.3,w/2,h/2,Math.max(w,h)*0.6);
+  edgeG.addColorStop(0,'rgba(0,0,0,0)');edgeG.addColorStop(1,'rgba(80,60,40,.35)');
+  g.fillStyle=edgeG;g.fillRect(0,0,w,h);
+  
+  g.fillStyle='#2a1810';
+  g.font='bold 32px "Courier New",monospace';
+  g.textAlign='center';
+  g.fillText('Вітаю в цьому світі ,',w/2,60);
+  g.fillText('о тебе брате мій !',w/2,100);
+  g.fillText('Для тебе склав я список',w/2,140);
+  g.fillText('яких він так любив !',w/2,180);
+  g.fillText('Закінчи справу брате',w/2,220);
+  g.fillText('і доєднай їх вразно !',w/2,260);
+  
+  g.strokeStyle='#6a4830';g.lineWidth=2;
+  g.beginPath();g.moveTo(80,290);g.lineTo(w-80,290);g.stroke();
+  
+  g.font='18px "Courier New",monospace';
+  g.textAlign='left';
+  const startY=HEADER_HEIGHT_PX;
+  nicks.forEach((nick,i)=>{
+    const y=startY+i*LINE_HEIGHT_PX;
+    g.fillStyle='#2a1810';
+    g.fillText(`• ${nick}`,60,y);
+  });
+});
+
+scene.add(new THREE.AmbientLight(0x2a2820,0.8));
+
+const letterGroup=new THREE.Group();
+scene.add(letterGroup);
+
+const BASE_THICKNESS=0.12;
+const letterBase=new THREE.Mesh(
+  new THREE.BoxGeometry(LETTER_WIDTH+0.2,BASE_THICKNESS,LETTER_HEIGHT+0.2),
+  ps1(new THREE.MeshLambertMaterial({color:0xd8d0b8}))
+);
+letterBase.position.y=-BASE_THICKNESS/2;
+letterGroup.add(letterBase);
+
+const LETTER_SURFACE_Y=0.05;
+
+const letter=new THREE.Mesh(
+  new THREE.PlaneGeometry(LETTER_WIDTH,LETTER_HEIGHT),
+  new THREE.MeshLambertMaterial({
+    map:texLetter,
+    side:THREE.DoubleSide,
+    polygonOffset:true,
+    polygonOffsetFactor:-4,
+    polygonOffsetUnits:-4
+  })
+);
+letter.rotation.x=-Math.PI/2;
+letter.position.y=LETTER_SURFACE_Y;
+letter.renderOrder=2;
+letterGroup.add(letter);
+
+const candles=[];
+const texFlame=makeTex(32,32,(g,s)=>{
+  const r=g.createRadialGradient(s/2,s*0.6,1,s/2,s*0.6,s*0.5);
+  r.addColorStop(0,'rgba(255,240,180,1)');
+  r.addColorStop(0.3,'rgba(255,180,60,0.9)');
+  r.addColorStop(0.7,'rgba(255,100,20,0.4)');
+  r.addColorStop(1,'rgba(255,60,10,0)');
+  g.fillStyle=r;g.fillRect(0,0,s,s);
+});
+
+const candleXOffset=LETTER_WIDTH/2+1.2;
+const candleZStart=-(LETTER_HEIGHT/2-1.0);
+const candleZEnd=LETTER_HEIGHT/2-1.0;
+const candleCount=Math.max(2,Math.floor(LETTER_HEIGHT/5));
+
+const candlePositions=[];
+candlePositions.push([-candleXOffset,0,candleZStart]);
+candlePositions.push([candleXOffset,0,candleZStart]);
+candlePositions.push([-candleXOffset,0,candleZEnd]);
+candlePositions.push([candleXOffset,0,candleZEnd]);
+
+for(let i=1;i<candleCount-1;i++){
+  const z=candleZStart+(candleZEnd-candleZStart)*(i/(candleCount-1));
+  candlePositions.push([-candleXOffset,0,z]);
+  candlePositions.push([candleXOffset,0,z]);
+}
+
+candlePositions.forEach(pos=>{
+  const candle=new THREE.Group();
+  const wax=new THREE.Mesh(
+    new THREE.CylinderGeometry(0.1,0.12,0.6,8),
+    ps1(new THREE.MeshLambertMaterial({color:0xe8e0d0}))
+  );
+  wax.position.y=0.3;
+  candle.add(wax);
+  
+  const flame=new THREE.Sprite(
+    new THREE.SpriteMaterial({map:texFlame,transparent:true,blending:THREE.AdditiveBlending})
+  );
+  flame.scale.set(0.3,0.42,1);
+  flame.position.y=0.66;
+  candle.add(flame);
+  
+  const light=new THREE.PointLight(0xff8844,1.2,8,2);
+  light.position.y=0.66;
+  candle.add(light);
+  
+  candle.position.set(pos[0],pos[1],pos[2]);
+  scene.add(candle);
+  candles.push({flame,light,phase:rnd(0,Math.PI*2)});
+});
+
+let state='approaching',T=0,approachT=0,transitioning=false;
+const APPROACH_DURATION=3.5;
+const SHOW_BUTTON_TIME=15.0;
+let buttonShown=false;
+let readyTime=0;
+
+let viewCenter={x:0,z:0};
+let viewZoom=1.0;
+let zoomTarget=1.0;
+let zoomedIn=false;
+const ZOOM_NORMAL=1.0;
+const ZOOM_CLOSE=0.23;
+let isDragging=false,dragStart={x:0,y:0};
+
+renderer.domElement.addEventListener('dblclick',function(e){
+  if(state!=='ready')return;
+  zoomedIn=!zoomedIn;
+  if(zoomedIn){
+    zoomTarget=ZOOM_CLOSE;
+    viewCenter.z=ZOOM_START_Z;
+    viewCenter.x=0;
+  }else{
+    zoomTarget=ZOOM_NORMAL;
+    viewCenter.x=0;viewCenter.z=0;
+  }
+});
+
+renderer.domElement.addEventListener('mousedown',function(e){
+  if(state!=='ready')return;
+  isDragging=true;
+  dragStart={x:e.clientX,y:e.clientY};
+  renderer.domElement.classList.add('dragging');
+});
+window.addEventListener('mousemove',function(e){
+  if(!isDragging||state!=='ready')return;
+  const speed=0.003*viewZoom;
+  const dx=(e.clientX-dragStart.x)*speed;
+  const dy=(e.clientY-dragStart.y)*speed;
+  viewCenter.x=clamp(viewCenter.x-dx,-PAN_LIMIT_X,PAN_LIMIT_X);
+  viewCenter.z=clamp(viewCenter.z-dy,-PAN_LIMIT_Z,PAN_LIMIT_Z);
+  dragStart={x:e.clientX,y:e.clientY};
+});
+window.addEventListener('mouseup',function(){
+  if(isDragging){
+    isDragging=false;
+    renderer.domElement.classList.remove('dragging');
+  }
+});
+
+renderer.domElement.addEventListener('wheel',function(e){
+  if(state!=='ready')return;
+  e.preventDefault();
+  const delta=e.deltaY>0?0.1:-0.1;
+  zoomTarget=clamp(zoomTarget+delta,0.1,1.5);
+},{passive:false});
+
+$('continueBtn').addEventListener('click',function(){
+  if(transitioning)return;
+  transitioning=true;
+  $('fade').style.opacity=1;
+  setTimeout(function(){window.location.href='index.html';},1500);
+});
+
+let AC=null,master;
+function noiseBuf(len){const b=AC.createBuffer(1,AC.sampleRate*len,AC.sampleRate),d=b.getChannelData(0);
+  for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;return b;}
+function initAudio(){
+  if(AC)return;AC=new(window.AudioContext||window.webkitAudioContext)();
+  master=AC.createGain();master.gain.value=0.6;master.connect(AC.destination);
+  const w=AC.createBufferSource();w.buffer=noiseBuf(3);w.loop=true;
+  const f=AC.createBiquadFilter();f.type='lowpass';f.frequency.value=180;
+  const wg=AC.createGain();wg.gain.value=0.03;
+  w.connect(f);f.connect(wg);wg.connect(master);w.start();
+  const o=AC.createOscillator();o.type='sine';o.frequency.value=38;
+  const og=AC.createGain();og.gain.value=0.04;o.connect(og);og.connect(master);o.start();
+}
+initAudio();
+
+function easeInOut(t){return t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;}
+
+const nzC=$('noiseC'),ng=nzC.getContext('2d');
+function drawNoise(){
+  const id=ng.createImageData(128,72),d=id.data;
+  for(let i=0;i<d.length;i+=4){const v=Math.random()*255|0;d[i]=d[i+1]=d[i+2]=v;d[i+3]=255;}
+  ng.putImageData(id,0,0);
+}
+
+let last=performance.now();
+function loop(){
+  requestAnimationFrame(loop);
+  const now=performance.now();
+  const dt=Math.min(0.05,(now-last)/1000);last=now;T+=dt;
+  
+  drawNoise();
+  
+  candles.forEach(function(c){
+    c.phase+=dt*8;
+    const flicker=0.8+Math.sin(c.phase)*0.15+Math.sin(c.phase*2.3)*0.05;
+    c.light.intensity=1.2*flicker;
+    c.flame.material.opacity=0.7+flicker*0.3;
+    c.flame.scale.y=0.42+Math.sin(c.phase*1.5)*0.04;
+  });
+  
+  if(state==='approaching'){
+    approachT+=dt;
+    const p=Math.min(1,approachT/APPROACH_DURATION);
+    const ep=easeInOut(p);
+    camera.position.x=CAM_START.x+(CAM_END.x-CAM_START.x)*ep;
+    camera.position.y=CAM_START.y+(CAM_END.y-CAM_START.y)*ep;
+    camera.position.z=CAM_START.z+(CAM_END.z-CAM_START.z)*ep;
+    camera.lookAt(0,0,0);
+    
+    if(p>=1){
+      state='ready';
+      readyTime=T;
+    }
+  }else if(state==='ready'){
+    viewZoom+=(zoomTarget-viewZoom)*Math.min(1,dt*4.0);
+    
+    const baseY=CAM_END.y*viewZoom;
+    const baseZ=CAM_END.z*viewZoom;
+    camera.position.x=viewCenter.x;
+    camera.position.y=baseY;
+    camera.position.z=viewCenter.z+baseZ;
+    camera.lookAt(viewCenter.x,0.1,viewCenter.z);
+    
+    if(!buttonShown&&T-readyTime>=SHOW_BUTTON_TIME){
+      buttonShown=true;
+      $('continueBtn').classList.add('show');
+    }
+    
+    if(buttonShown){
+      const remaining=Math.max(0,SHOW_BUTTON_TIME-(T-readyTime));
+      if(remaining>0){
+        $('timer').textContent=Math.ceil(remaining)+'с';
+      }else{
+        $('timer').textContent='';
+      }
+    }
+  }
+  
+  renderer.render(scene,camera);
+}
+loop();
+</script>
+</body>
+</html>

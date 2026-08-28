@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ділер</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Courier New',monospace;user-select:none;-webkit-user-select:none}
+#c{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);image-rendering:pixelated;image-rendering:crisp-edges;z-index:0;background:#000}
+.ov{position:absolute;inset:0;pointer-events:none}
+#scan{z-index:8;background:repeating-linear-gradient(0deg,rgba(0,0,0,.24) 0 1px,transparent 1px 3px)}
+#vig{z-index:9;background:radial-gradient(ellipse at center,transparent 52%,rgba(0,0,0,.85) 100%)}
+#noise{z-index:9;opacity:.07;animation:nz .35s steps(3) infinite}
+@keyframes nz{0%{background-position:0 0}33%{background-position:-60px 40px}66%{background-position:40px -70px}100%{background-position:-30px -30px}}
+#tag{position:absolute;top:14px;left:16px;z-index:10;font-size:12px;letter-spacing:3px;color:#565b52}
+#msg{position:absolute;left:50%;bottom:9%;transform:translateX(-50%);z-index:10;
+ max-width:680px;text-align:center;color:#cfd3c8;font-size:19px;letter-spacing:1px;line-height:1.7;
+ text-shadow:0 0 8px #000,0 0 2px #000;animation:msgP 2.4s ease-in-out infinite}
+@keyframes msgP{50%{opacity:.55}}
+#talk{position:absolute;left:50%;bottom:9%;transform:translateX(-50%);z-index:10;
+ max-width:680px;text-align:center;color:#f4f3ea;font-size:20px;letter-spacing:1px;line-height:1.7;
+ text-shadow:0 0 8px #000,0 0 2px #000;opacity:0;transition:opacity .4s;white-space:pre-wrap}
+#hint{position:absolute;left:50%;bottom:3.5%;transform:translateX(-50%);z-index:10;
+ font-size:14px;letter-spacing:3px;color:#8fae93;text-shadow:0 0 6px #000;animation:msgP 1.4s ease-in-out infinite}
+#end{position:absolute;inset:0;z-index:20;display:none;flex-direction:column;align-items:center;justify-content:center;
+ background:rgba(0,0,0,.96);text-align:center;color:#cfd3c8;pointer-events:auto}
+#end .eK{font-size:13px;letter-spacing:6px;color:#7d8375;margin-bottom:34px}
+#nextBtn{background:none;border:1px solid #8b8f84;color:#e8e4d0;font-family:inherit;font-size:22px;
+ letter-spacing:6px;padding:16px 44px;cursor:pointer}
+#nextBtn:hover{background:#e8e4d0;color:#000}
+#end .eN{margin-top:26px;font-size:12px;letter-spacing:2px;color:#6f7568}
+#fade{position:absolute;inset:0;background:#000;opacity:0;transition:opacity .45s;z-index:15;pointer-events:none}
+</style>
+</head>
+<body>
+<canvas id="c" width="512" height="288"></canvas>
+<div class="ov" id="scan"></div>
+<div class="ov" id="noise"></div>
+<div class="ov" id="vig"></div>
+<div id="tag">Я нє зможу прісоєдініть фєрмєра ліса без таблєточек ю.</div>
+<div id="msg">я не бачу йх без таблеток щастя ю. Нужна заказати кілька штук натисні F ю!  Всє оні должні бути разом зо мною ю!</div>
+<div id="talk"></div>
+<div id="hint">НАТИСНИ F Ю.</div>
+<div id="end">
+  <div class="eK"></div>
+  <button id="nextBtn">ПРОДОВЖИТИ</button>
+  <div class="eN"></div>
+</div>
+<div id="fade"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+"use strict";
+if(typeof THREE!=='undefined'){(function(){
+const $=id=>document.getElementById(id);
+const cv=$('c'),msgEl=$('msg'),talkEl=$('talk'),hintEl=$('hint'),fadeEl=$('fade'),endEl=$('end'),nextBtn=$('nextBtn');
+
+(()=>{const n=document.createElement('canvas');n.width=n.height=140;const x=n.getContext('2d');
+const im=x.createImageData(140,140);for(let i=0;i<im.data.length;i+=4){const v=Math.random()*255|0;
+im.data[i]=v;im.data[i+1]=v;im.data[i+2]=v;im.data[i+3]=255;}x.putImageData(im,0,0);
+$('noise').style.backgroundImage='url('+n.toDataURL()+')';})();
+
+
+const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:false});
+renderer.setPixelRatio(1);renderer.setSize(512,288,false);
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x000000);
+const camera=new THREE.PerspectiveCamera(55,512/288,0.1,100);
+camera.position.set(0,3.1,6.6);
+
+function fit(){const wa=innerWidth/innerHeight,va=512/288;let w,h;
+if(wa>va){w=innerWidth;h=innerWidth/va;}else{h=innerHeight;w=innerHeight*va;}
+cv.style.width=w+'px';cv.style.height=h+'px';}
+addEventListener('resize',fit);fit();
+
+scene.add(new THREE.HemisphereLight(0x8fa3c0,0x101018,.75));
+const key=new THREE.DirectionalLight(0xcfe0ff,.95);key.position.set(4,7,6);scene.add(key);
+const rimL=new THREE.PointLight(0x3355aa,.5);rimL.position.set(-5,3,-4);scene.add(rimL);
+
+function labelTexture(){
+ const c=document.createElement('canvas');c.width=256;c.height=256;const x=c.getContext('2d');
+ x.fillStyle='#d9d4c2';x.fillRect(0,0,256,256);
+ x.fillStyle='#b8b09a';x.fillRect(0,0,256,8);x.fillRect(0,248,256,8);
+ x.strokeStyle='#8f8871';x.lineWidth=4;x.strokeRect(6,6,244,244);
+ x.textAlign='center';
+ x.fillStyle='#1d3b7a';x.font='bold 34px "Courier New"';
+ x.fillText('Таблєточкі',128,104);
+ x.fillText('щастя',128,152);
+ x.fillStyle='#7a3030';x.font='13px "Courier New"';
+ x.fillText('ПРИЙМАТИ ВСЕРЕДИНУ',128,204);
+ const t=new THREE.CanvasTexture(c);t.magFilter=THREE.NearestFilter;t.minFilter=THREE.NearestFilter;
+ t.generateMipmaps=false;return t;}
+
+const jarG=new THREE.Group();scene.add(jarG);
+const jarMat=new THREE.MeshPhongMaterial({color:0x2a63b8,transparent:true,opacity:.88,
+ shininess:90,emissive:0x0a1e3a,specular:0x9db8e8});
+const body=new THREE.Mesh(new THREE.CylinderGeometry(.95,.9,2.4,24),jarMat);
+body.position.y=1.2;jarG.add(body);
+/* ================= LOOP ================= */
+const neck=new THREE.Mesh(new THREE.CylinderGeometry(.78,.88,.28,24),jarMat);
+neck.position.y=2.52;jarG.add(neck);
+const mouth=new THREE.Mesh(new THREE.CircleGeometry(.7,20),
+ new THREE.MeshBasicMaterial({color:0x050d1d}));
+mouth.rotation.x=-Math.PI/2;mouth.position.y=2.67;jarG.add(mouth);
+const labMat=new THREE.MeshLambertMaterial({map:labelTexture()});
+const THETA=1.25;
+const labF=new THREE.Mesh(new THREE.CylinderGeometry(.985,.985,1.15,12,1,true,-THETA/2,THETA),labMat);
+labF.position.y=1.15;jarG.add(labF);
+const labB=new THREE.Mesh(new THREE.CylinderGeometry(.985,.985,1.15,12,1,true,Math.PI-THETA/2,THETA),labMat);
+labB.position.y=1.15;jarG.add(labB);
+
+const xG=new THREE.Group();scene.add(xG);
+const xMat=new THREE.MeshBasicMaterial({color:0xff2519,transparent:true,opacity:.95});
+const barGeo=new THREE.BoxGeometry(.2,3.6,.12);
+const bar1=new THREE.Mesh(barGeo,xMat);bar1.position.set(0,1.45,1.05);bar1.rotation.z=.58;xG.add(bar1);
+const bar2=new THREE.Mesh(barGeo,xMat);bar2.position.set(0,1.45,1.05);bar2.rotation.z=-.58;xG.add(bar2);
+
+const sCv=document.createElement('canvas');sCv.width=192;sCv.height=256;
+const sx=sCv.getContext('2d');
+const sTex=new THREE.CanvasTexture(sCv);
+sTex.magFilter=THREE.NearestFilter;sTex.minFilter=THREE.NearestFilter;sTex.generateMipmaps=false;
+
+function statusBar(){
+ sx.fillStyle='#0c2416';sx.fillRect(0,0,192,16);
+ sx.fillStyle='#7fd694';
+ for(let i=0;i<4;i++)sx.fillRect(6+i*6,13-(3+i*2),4,3+i*2);
+ sx.fillRect(166,4,20,8);sx.fillRect(186,6,3,4);
+ sx.fillStyle='#07130c';sx.fillRect(168,6,8,4);}
+function drawDial(t){
+ sx.fillStyle='#07130c';sx.fillRect(0,0,192,256);
+ statusBar();
+ sx.fillStyle='#b8f0c4';sx.font='bold 27px "Courier New"';sx.textAlign='center';
+ sx.fillText('Ділер',96,96);
+ sx.font='14px "Courier New"';sx.fillStyle='#7fd694';
+ if(Math.sin(t*6)>-.2)sx.fillText('виклик...',96,124);
+ sx.save();sx.translate(96,182);sx.rotate(-.45);
+ sx.strokeStyle=Math.sin(t*4)>0?'#39d353':'#1f7a33';
+ sx.lineWidth=10;sx.lineCap='round';
+ sx.beginPath();sx.arc(0,8,18,Math.PI*1.12,Math.PI*1.88);sx.stroke();
+ sx.restore();}
+function drawConnected(t,secs){
+ sx.fillStyle='#07130c';sx.fillRect(0,0,192,256);
+ statusBar();
+ sx.textAlign='center';
+ sx.fillStyle='#b8f0c4';sx.font='bold 20px "Courier New"';
+ sx.fillText('Связь з',96,92);
+ sx.fillText('абонєнтом',96,118);
+ sx.font='bold 26px "Courier New"';
+ sx.fillText('ділер',96,156);
+ const mm=String(Math.floor(secs/60)).padStart(2,'0');
+ const ss=String(Math.floor(secs%60)).padStart(2,'0');
+ sx.font='14px "Courier New"';
+ sx.fillStyle=Math.sin(t*3)>0?'#7fd694':'#4a8f5e';
+ sx.fillText(mm+':'+ss,96,204);
+ sx.save();sx.translate(96,228);sx.rotate(-.45);
+ sx.strokeStyle='#1f7a33';sx.lineWidth=6;sx.lineCap='round';
+ sx.beginPath();sx.arc(0,4,10,Math.PI*1.12,Math.PI*1.88);sx.stroke();
+ sx.restore();}
+function drawOff(){sx.fillStyle='#000';sx.fillRect(0,0,192,256);}
+
+const phoneG=new THREE.Group();phoneG.visible=false;phoneG.position.set(0,-1.6,0);scene.add(phoneG);
+const pBody=new THREE.Mesh(new THREE.BoxGeometry(1.05,2.15,.16),
+ new THREE.MeshPhongMaterial({color:0x181b22,shininess:40}));
+phoneG.add(pBody);
+const screenM=new THREE.Mesh(new THREE.PlaneGeometry(.82,1.1),
+ new THREE.MeshBasicMaterial({map:sTex}));
+screenM.position.set(0,.42,.085);phoneG.add(screenM);
+const bMat=new THREE.MeshPhongMaterial({color:0x2b303c});
+for(let r=0;r<4;r++)for(let c=0;c<3;c++){
+ const b=new THREE.Mesh(new THREE.BoxGeometry(.2,.12,.05),bMat);
+ b.position.set(-.26+c*.26,-.28-r*.18,.09);phoneG.add(b);}
+const ant=new THREE.Mesh(new THREE.CylinderGeometry(.03,.03,.5,8),
+ new THREE.MeshPhongMaterial({color:0x0d0f14}));
+ant.position.set(.38,1.3,0);phoneG.add(ant);
+
+let AC=null,noiseBuf=null;
+function initAudio(){
+ if(AC)return;
+ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
+ if(AC.resume)AC.resume();
+ const len=AC.sampleRate;noiseBuf=AC.createBuffer(1,len,AC.sampleRate);
+ const d=noiseBuf.getChannelData(0);
+ for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*.6;}
+function nz(vol,fq,dur,type){if(!AC)return;const t=AC.currentTime;
+ const s=AC.createBufferSource();s.buffer=noiseBuf;
+ const f=AC.createBiquadFilter();f.type=type||'bandpass';f.frequency.value=fq;f.Q.value=1;
+ const g=AC.createGain();g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur);
+ s.connect(f);f.connect(g);g.connect(AC.destination);s.start(t,Math.random()*.5,dur+.05);}
+function tone(freq0,freq1,dur,vol,type){if(!AC)return;const t=AC.currentTime;
+ const o=AC.createOscillator();o.type=type||'sine';
+ o.frequency.setValueAtTime(freq0,t);o.frequency.exponentialRampToValueAtTime(freq1,t+dur);
+ const g=AC.createGain();g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.001,t+dur+.03);
+ o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+dur+.05);}
+const clickS=()=>tone(500,300,.08,.2,'square');
+const connectS=()=>tone(660,990,.15,.18,'triangle');
+const tickType=()=>nz(.05,1800+Math.random()*600,.03,'highpass');
+function ringBurst(){tone(425,425,.4,.1,'sine');setTimeout(()=>tone(425,425,.4,.1,'sine'),500);}
+
+const MSG2="мені нужни таблєькі щастя доставте йх к астановкє";
+let phase='jar',phT=0,time=0,ringT=0,typed=0,lastChar=0,offDrawn=false,talkDur=0;
+
+function setupPhone(){
+ jarG.visible=false;xG.visible=false;
+ phoneG.visible=true;}
+
+function onF(){
+ if(phase!=='jar')return;
+ initAudio();clickS();
+
+ msgEl.style.animation='none';
+ msgEl.style.display='none';
+ hintEl.style.display='none';
+ phase='fadeOut';phT=0;}
+addEventListener('keydown',e=>{if(e.code==='KeyF')onF();});
+
+nextBtn.addEventListener('click',()=>{clickS();
+ setTimeout(()=>{window.location.href='7.html';},200);});
+
+function phoneIdle(){
+ phoneG.position.y=1.42+Math.sin(time*1.1)*.03;
+ phoneG.rotation.y=Math.sin(time*.6)*.07;
+ phoneG.rotation.z=0;}
+function cameraPhone(){
+ camera.position.set(Math.sin(time*.3)*.12,1.5+Math.sin(time*.45)*.05,3.0);
+ camera.lookAt(0,1.42,0);}
+
+let last=performance.now();
+function loop(now){
+ requestAnimationFrame(loop);
+ const dt=Math.min(.05,(now-last)/1000);last=now;time+=dt;phT+=dt;
+
+ if(phase==='jar'){
+  camera.position.set(Math.sin(time*.35)*.3,3.1+Math.sin(time*.5)*.08,6.6);
+  camera.lookAt(0,1.7,0);
+  xMat.opacity=.85+.15*Math.sin(time*4);
+  const ps=1+.06*Math.sin(time*4);
+  bar1.scale.set(ps,1,ps);bar2.scale.set(ps,1,ps);}
+ else if(phase==='fadeOut'){
+  fadeEl.style.opacity=Math.min(1,phT/.45);
+  if(phT>=.55){setupPhone();phase='phoneIn';phT=0;}}
+ else if(phase==='phoneIn'){
+  fadeEl.style.opacity=Math.max(0,1-phT/.5);
+  const t=Math.min(1,phT/.8),e=1-Math.pow(1-t,3);
+  phoneG.position.y=-1.6+3.02*e;
+  phoneG.rotation.z=(1-e)*.5;
+  cameraPhone();
+  if(t>=1){phase='dial';phT=0;ringT=0;}}
+ else if(phase==='dial'){
+  phoneIdle();cameraPhone();
+  ringT-=dt;if(ringT<=0){ringBurst();ringT=1.9;}
+  drawDial(time);sTex.needsUpdate=true;
+  if(phT>=2.8){
+   phase='talk';phT=0;connectS();
+   typed=0;lastChar=0;talkEl.style.opacity='1';}}
+ else if(phase==='talk'){
+  phoneIdle();cameraPhone();
+  drawConnected(time,phT);sTex.needsUpdate=true;
+  typed+=dt*15;
+  const n=Math.min(MSG2.length,Math.floor(typed));
+  if(n>lastChar){lastChar=n;tickType();}
+  talkEl.textContent=MSG2.slice(0,n)+(n<MSG2.length?' ▌':'');
+  if(n>=MSG2.length){talkDur=phT;phase='typedPause';phT=0;}}
+ else if(phase==='typedPause'){
+  phoneIdle();cameraPhone();
+  drawConnected(time,talkDur+phT);sTex.needsUpdate=true;
+  if(phT>=1.8){phase='outro';phT=0;talkEl.style.opacity='0';}}
+ else if(phase==='outro'){
+  if(!offDrawn){offDrawn=true;drawOff();sTex.needsUpdate=true;}
+  fadeEl.style.opacity=Math.min(1,phT/.9);
+  if(phT>=1.3){endEl.style.display='flex';phase='end';}}
+
+ renderer.render(scene,camera);}
+requestAnimationFrame(loop);
+})();}
+else{
+ document.getElementById('msg').innerHTML=
+ '<span style="color:#ff5040">НЕ ВДАЛОСЯ ЗАВАНТАЖИТИ THREE.JS</span><br>'+
+ '<span style="font-size:13px;color:#999">потрібен інтернет · онови сторінку</span>';}
+</script>
+</body>
+</html>

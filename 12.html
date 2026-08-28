@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ніііііі</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#0a0000;font-family:'Courier New',monospace;user-select:none;-webkit-user-select:none}
+#c{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);image-rendering:pixelated;image-rendering:crisp-edges;z-index:0;background:#1a0000}
+.ov{position:absolute;inset:0;pointer-events:none}
+#scan{z-index:8;background:repeating-linear-gradient(0deg,rgba(0,0,0,.35) 0 1px,transparent 1px 3px)}
+#vig{z-index:9;background:radial-gradient(ellipse at center,transparent 40%,rgba(60,0,0,.9) 100%)}
+#noise{z-index:9;opacity:.09;animation:nz .35s steps(3) infinite}
+@keyframes nz{0%{background-position:0 0}33%{background-position:-60px 40px}66%{background-position:40px -70px}100%{background-position:-30px -30px}}
+
+#tag{position:absolute;top:14px;left:16px;z-index:10;font-size:12px;letter-spacing:3px;color:#5a2020}
+
+#msg{position:absolute;left:50%;bottom:14%;transform:translateX(-50%);z-index:10;
+ max-width:700px;text-align:center;color:#ff3333;font-size:18px;letter-spacing:1px;line-height:1.6;
+ text-shadow:0 0 10px #ff0000,0 0 2px #000;white-space:pre-wrap;opacity:0;transition:opacity 1s}
+
+#submsg{position:absolute;left:16px;bottom:16px;z-index:10;
+ max-width:380px;text-align:left;color:#3a3a3a;font-size:12px;letter-spacing:1px;line-height:1.4;
+ text-shadow:0 0 4px #000;white-space:pre-wrap;opacity:0;transition:opacity 1.5s}
+
+#nextBtn{position:absolute;left:50%;bottom:4%;transform:translateX(-50%);z-index:10;
+ background:none;border:1px solid #883333;color:#ff4444;font-family:inherit;font-size:18px;
+ letter-spacing:4px;padding:12px 32px;cursor:pointer;opacity:0;pointer-events:none;
+ transition:opacity 1s, background .3s, color .3s, box-shadow .3s}
+#nextBtn.visible{opacity:1;pointer-events:auto}
+#nextBtn:hover{background:#ff4444;color:#000;box-shadow:0 0 15px #ff0000}
+
+#startOverlay{position:absolute;inset:0;z-index:100;background:#000;display:flex;align-items:center;justify-content:center;
+ flex-direction:column;cursor:pointer;transition:opacity 1s}
+#startOverlay .txt{color:#ff3333;font-size:16px;letter-spacing:4px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+
+#fade{position:absolute;inset:0;background:#000;opacity:1;transition:opacity 1.5s;z-index:15;pointer-events:none}
+</style>
+</head>
+<body>
+
+<div id="startOverlay"><div class="txt">[ І КЛАЦНІ ТИ , ЩОБ УВІЙТИ ! ]</div></div>
+
+<canvas id="c" width="512" height="288"></canvas>
+<div class="ov" id="scan"></div>
+<div class="ov" id="noise"></div>
+<div class="ov" id="vig"></div>
+
+<div id="tag">12</div>
+<div id="msg"></div>
+<div id="submsg"></div>
+
+<button id="nextBtn">ПРОДОВЖИТИ ▸</button>
+
+<div id="fade"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+"use strict";
+if(typeof THREE!=='undefined'){(function(){
+const $=id=>document.getElementById(id);
+const cv=$('c'),msgEl=$('msg'),subEl=$('submsg'),fadeEl=$('fade'),nextBtn=$('nextBtn'),startOverlay=$('startOverlay');
+
+(()=>{const n=document.createElement('canvas');n.width=n.height=140;const x=n.getContext('2d');
+const im=x.createImageData(140,140);for(let i=0;i<im.data.length;i+=4){const v=Math.random()*255|0;
+im.data[i]=v;im.data[i+1]=v;im.data[i+2]=v;im.data[i+3]=255;}x.putImageData(im,0,0);
+$('noise').style.backgroundImage='url('+n.toDataURL()+')';})();
+
+const renderer=new THREE.WebGLRenderer({canvas:cv,antialias:false});
+renderer.setPixelRatio(1);renderer.setSize(512,288,false);
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x1a0000);
+scene.fog=new THREE.FogExp2(0x1a0000,0.08);
+
+const camera=new THREE.PerspectiveCamera(55,512/288,0.1,100);
+camera.position.set(0,2.5,5.5);
+
+function fit(){const wa=innerWidth/innerHeight,va=512/288;let w,h;
+if(wa>va){w=innerWidth;h=innerWidth/va;}else{h=innerHeight;w=innerHeight*va;}
+cv.style.width=w+'px';cv.style.height=h+'px';}
+addEventListener('resize',fit);fit();
+
+scene.add(new THREE.HemisphereLight(0x440000,0x000000,0.6));
+const key=new THREE.DirectionalLight(0xff2222,0.8);key.position.set(3,6,4);scene.add(key);
+const flicker=new THREE.PointLight(0xff0000,1.2,8);flicker.position.set(-2,3,-2);scene.add(flicker);
+
+/* ================= СПОТВОРЕНА БАНКА ================= */
+const jarG=new THREE.Group();scene.add(jarG);
+const jarMat=new THREE.MeshPhongMaterial({color:0x220000,transparent:true,opacity:0.9,
+ shininess:10,emissive:0x330000,specular:0x550000});
+
+const body=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.45,4.8,16),jarMat);
+body.position.y=2.4;jarG.add(body);
+
+const neck=new THREE.Mesh(new THREE.CylinderGeometry(0.25,0.35,0.6,16),jarMat);
+neck.position.y=5.1;jarG.add(neck);
+
+const mouth=new THREE.Mesh(new THREE.CircleGeometry(0.22,16),
+ new THREE.MeshBasicMaterial({color:0x000000}));
+mouth.rotation.x=-Math.PI/2;mouth.position.y=5.4;jarG.add(mouth);
+
+function labelTexture(){
+ const c=document.createElement('canvas');c.width=128;c.height=256;const x=c.getContext('2d');
+ x.fillStyle='#2a0a0a';x.fillRect(0,0,128,256);
+ x.fillStyle='#000';x.font='bold 16px "Courier New"';x.textAlign='center';
+ x.save();x.translate(64,128);x.rotate(-Math.PI/2);
+ x.fillText('ЩАСТЯ',0,-10);x.fillText('ПЕКЛО',0,20);
+ x.restore();
+ const t=new THREE.CanvasTexture(c);t.magFilter=THREE.NearestFilter;t.minFilter=THREE.NearestFilter;
+ t.generateMipmaps=false;return t;
+}
+const labMat=new THREE.MeshLambertMaterial({map:labelTexture(),transparent:true,opacity:0.7});
+const lab=new THREE.Mesh(new THREE.CylinderGeometry(0.48,0.48,2.5,8,1,true,0,Math.PI*1.5),labMat);
+lab.position.y=2.6;jarG.add(lab);
+
+const pillGeo=new THREE.CylinderGeometry(0.12,0.12,0.25,8);
+const sphereGeo=new THREE.SphereGeometry(0.14,8,8);
+const colors=[0x330000,0x111111,0x443300,0x2a0a0a];
+
+for(let i=0;i<14;i++){
+ const isSphere=Math.random()>0.6;
+ const geo=isSphere?sphereGeo:pillGeo;
+ const mat=new THREE.MeshPhongMaterial({
+  color:colors[Math.floor(Math.random()*colors.length)],
+  shininess:15,emissive:0x110000
+ });
+ const mesh=new THREE.Mesh(geo,mat);
+ const angle=Math.random()*Math.PI*2;
+ const radius=1.2+Math.random()*2.8;
+ mesh.position.set(Math.cos(angle)*radius,0.12,Math.sin(angle)*radius);
+ mesh.rotation.set(Math.random()*Math.PI,Math.random()*Math.PI,Math.random()*Math.PI);
+ 
+ if(!isSphere){
+  if(Math.random()<0.5){
+   mesh.scale.set(0.25,2.8,0.25);
+  }else{
+   mesh.scale.set(1.6,0.08,1.6);
+  }
+ }else{
+  mesh.scale.set(1.3,1.3,1.3);
+ }
+ scene.add(mesh);
+}
+
+let AC=null;
+function initAudio(){
+ if(AC)return;
+ try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){return;}
+ if(AC.resume)AC.resume();
+ 
+ const osc1=AC.createOscillator();osc1.type='sawtooth';osc1.frequency.value=45;
+ const filter1=AC.createBiquadFilter();filter1.type='lowpass';filter1.frequency.value=100;
+ const gain1=AC.createGain();gain1.gain.setValueAtTime(0,AC.currentTime);
+ gain1.gain.linearRampToValueAtTime(0.12,AC.currentTime+4);
+ osc1.connect(filter1);filter1.connect(gain1);gain1.connect(AC.destination);osc1.start();
+
+ const osc2=AC.createOscillator();osc2.type='sine';osc2.frequency.value=880;
+ const gain2=AC.createGain();gain2.gain.setValueAtTime(0,AC.currentTime);
+ gain2.gain.linearRampToValueAtTime(0.015,AC.currentTime+5);
+ const lfo=AC.createOscillator();lfo.frequency.value=0.3;
+ const lfoGain=AC.createGain();lfoGain.gain.value=0.015;
+ lfo.connect(lfoGain);lfoGain.connect(gain2.gain);
+ osc2.connect(gain2);gain2.connect(AC.destination);osc2.start();lfo.start();
+
+ setInterval(()=>{
+  if(Math.random()>0.6&&AC&&AC.state==='running'){
+   const buf=AC.createBuffer(1,AC.sampleRate*0.3,AC.sampleRate);
+   const d=buf.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*0.8;
+   const src=AC.createBufferSource();src.buffer=buf;
+   const flt=AC.createBiquadFilter();flt.type='bandpass';flt.frequency.value=600+Math.random()*1000;
+   const gn=AC.createGain();gn.gain.setValueAtTime(0.04,AC.currentTime);
+   gn.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+0.3);
+   src.connect(flt);flt.connect(gn);gn.connect(AC.destination);src.start();
+  }
+ },4000);
+}
+
+const MAIN_TEXT="Коли приймаю я пігулки щастя , то бачу пекло , бачу брата , але не бачу мертвих душ , як бачив він . Одного разу брат звернувся прямо з Пекла і передав свою важливу звістку: Я зразумів он був нє цілю а шедевром ю!\n\nКоли відріжеш око власне , дух брата увійде завчасно і тілом керувати зможе вразно . Але для цього душу свою віддати Сатані потрібно передчасно !";
+const SUB_TEXT="А щоб відчути пекло брата , запам'ятай , що ключ до царства - число самого Сатани. На рівні ван мене знайди .";
+
+let phase='waiting',phT=0,time=0;
+let typedMain=0,typedSub=0,lastCharMain=0,lastCharSub=0;
+
+startOverlay.addEventListener('click',()=>{
+ initAudio();
+ startOverlay.style.opacity='0';
+ setTimeout(()=>{startOverlay.style.display='none';phase='fadein';phT=0;},1000);
+});
+
+nextBtn.addEventListener('click',()=>{
+ window.location.href='13.html';
+});
+
+let last=performance.now();
+function loop(now){
+ requestAnimationFrame(loop);
+ const dt=Math.min(.05,(now-last)/1000);last=now;time+=dt;phT+=dt;
+
+ flicker.intensity=1.0+Math.sin(time*3.5)*0.4+Math.random()*0.2;
+
+ jarG.rotation.y=time*0.15;
+ jarG.rotation.z=Math.sin(time*0.8)*0.04;
+ jarG.position.y=Math.sin(time*1.2)*0.05;
+
+ camera.position.x=Math.sin(time*0.25)*0.15;
+ camera.position.y=2.5+Math.sin(time*0.4)*0.08;
+ camera.lookAt(0,2.2,0);
+
+ if(phase==='fadein'){
+  fadeEl.style.opacity=Math.max(0,1-phT/1.5);
+  if(phT>=1.5){phase='typeMain';phT=0;msgEl.style.opacity='1';}
+ }
+ else if(phase==='typeMain'){
+  typedMain+=dt*25;
+  const n=Math.min(MAIN_TEXT.length,Math.floor(typedMain));
+  if(n>lastCharMain){
+   lastCharMain=n;
+   if(AC&&Math.random()>0.7){
+    const o=AC.createOscillator();o.type='square';o.frequency.value=200+Math.random()*100;
+    const g=AC.createGain();g.gain.setValueAtTime(0.02,AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+0.03);
+    o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+0.05);
+   }
+  }
+  msgEl.textContent=MAIN_TEXT.slice(0,n)+(n<MAIN_TEXT.length?' ▌':'');
+  
+  if(n>=MAIN_TEXT.length){
+   phase='typeSubAndShowBtn';
+   phT=0;
+   subEl.style.opacity='1';
+   nextBtn.classList.add('visible');
+  }
+ }
+ else if(phase==='typeSubAndShowBtn'){
+  typedSub+=dt*22;
+  const m=Math.min(SUB_TEXT.length,Math.floor(typedSub));
+  if(m>lastCharSub)lastCharSub=m;
+  subEl.textContent=SUB_TEXT.slice(0,m)+(m<SUB_TEXT.length?' ▌':'');
+ }
+
+ renderer.render(scene,camera);
+}
+requestAnimationFrame(loop);
+
+})();}
+else{
+ document.body.innerHTML='<div style="color:#ff3333;text-align:center;margin-top:40vh;font-family:monospace">НЕ ВДАЛОСЯ ЗАВАНТАЖИТИ THREE.JS<br>потрібен інтернет · онови сторінку</div>';
+}
+</script>
+</body>
+</html>

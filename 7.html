@@ -560,7 +560,7 @@ function resetLevel(){
 function endLevel(){
   if(state!=='play')return;
   state='ending';sndGong();
-  sub("Двері зачиняються. Харків наближається.",4);
+  sub("Двері зачиняються ю. Харків і фєрмєр лис я іду ю!",4);
   $('fade').style.opacity=1;
   setTimeout(()=>{state='done';document.exitPointerLock();$('endOv').style.display='flex';},1500);
 }
